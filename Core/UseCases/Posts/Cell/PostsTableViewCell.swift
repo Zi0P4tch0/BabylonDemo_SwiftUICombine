@@ -1,30 +1,31 @@
 import UIKit
-import RxSwift
-import RxCocoa
+import Combine
 
 final class PostsTableViewCell: UITableViewCell {
     
     @IBOutlet weak var titleLabel: UILabel!
-    
-    private var disposeBag = DisposeBag()
-    
+
     var viewModel: PostsTableViewCellViewModelType! {
         didSet {
+            titleCancellable = nil
             bind(viewModel.outputs)
         }
     }
-    
+
+    private var titleCancellable: AnyCancellable?
+
     func bind(_ outputs: PostsTableViewCellViewModelOutputs) {
-        
+
+        titleCancellable =
         outputs.title
-            .drive(titleLabel.rx.text)
-            .disposed(by: disposeBag)
+            .map { $0 as String? }
+            .assign(to: \.text, on: self.titleLabel)
         
     }
     
     override func prepareForReuse() {
         super.prepareForReuse()
-        disposeBag = DisposeBag()
+        titleLabel.text = nil
     }
     
 }

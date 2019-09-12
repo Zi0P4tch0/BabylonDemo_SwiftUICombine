@@ -1,18 +1,17 @@
 import Foundation
 @testable import Core
-import RxSwift
-import RxCocoa
+import Combine
 
 final class PostsViewModelMock: PostsViewModelType, PostsViewModelOutputs {
-    
+
     var outputs: PostsViewModelOutputs { return self }
     
-    let entries: Driver<[PostsTableViewCellViewModelType]>! = Driver.just([
+    let posts: AnyPublisher<[PostsTableViewCellViewModelType], Never>! = just([
         PostsTableViewCellViewModelMock(),
         PostsTableViewCellViewModelMock(),
         PostsTableViewCellViewModelMock()
     ])
-    let title: Driver<String> = Driver.just("title")
-    let progressHud: Driver<MBProgressHUDModel> = Driver.just(.hidden)
+    let title: AnyPublisher<String, Never> = just("title")
+    let progressHUD: AnyPublisher<MBProgressHUDModel?, Never> = just(nil)
 
 }

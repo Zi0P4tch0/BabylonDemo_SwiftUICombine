@@ -1,6 +1,5 @@
 import Foundation
-import RxSwift
-import RxCocoa
+import Combine
 
 public protocol UserRepositoryType {
     func getUsers(completion: @escaping (Result<[User]>) -> Void)
@@ -15,21 +14,19 @@ extension Repository {
     
 }
 
-extension UserRepositoryType /* Rx */ {
-    
-    public func getUsers() -> Single<[User]> {
-        return Single.create { single in
-            let disposable = Disposables.create()
+extension UserRepositoryType /* Combine */ {
+
+    public func getUsers() -> Future<[User], Error> {
+        Future { promise in
             self.getUsers { result in
                 switch result {
                 case .success(let result):
-                    single(.success(result))
+                    promise(.success(result))
                 case .failure(let error):
-                    single(.error(error))
+                    promise(.failure(error))
                 }
             }
-            return disposable
         }
     }
-    
+
 }

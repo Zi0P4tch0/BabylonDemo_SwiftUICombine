@@ -1,35 +1,45 @@
 import UIKit
-import RxSwift
-import RxCocoa
+import Combine
 
 class PostsViewController: UIViewController {
     
     @IBOutlet weak var tableView: UITableView!
-    
-    let dataSource = PostsDataSource()
-    private let disposeBag = DisposeBag()
-    
+
     var viewModel: PostsViewModelType!
+    var dataSource: PostsDataSource! {
+        didSet {
+            tableView.delegate = dataSource
+            tableView.dataSource = dataSource
+            tableView.reloadData()
+        }
+    }
+
+    private var titleCancellable: AnyCancellable?
+    private var postsCancellable: AnyCancellable?
+    private var progressHUDCancellable: AnyCancellable?
     
     override func viewDidLoad() {
         super.viewDidLoad()
         bind(viewModel.outputs)
-        tableView.delegate = dataSource
     }
     
     func bind(_ outputs: PostsViewModelOutputs) {
-        
+
+        titleCancellable =
         outputs.title
-            .drive(navigationItem.rx.title)
-            .disposed(by: disposeBag)
-        
-        outputs.entries
-            .drive(tableView.rx.items(dataSource: dataSource))
-            .disposed(by: disposeBag)
-        
-        outputs.progressHud
-            .drive(rx.progressHUD)
-            .disposed(by: disposeBag)
+            .map { $0 as String? }
+            .assign(to: \.title, on: navigationItem)
+
+        postsCancellable =
+        outputs.posts
+            .sink { [weak self] viewModels in
+                guard let self = self else { return }
+                self.dataSource = PostsDataSource(viewModels: viewModels)
+            }
+
+        progressHUDCancellable =
+        outputs.progressHUD
+            .assign(to: \.progressHUD, on: self)
                 
     }
     

@@ -1,6 +1,5 @@
 import Foundation
-import RxSwift
-import RxCocoa
+import Combine
 
 public protocol PostRepositoryType {
     func getPosts(completion: @escaping (Result<[Post]>) -> Void)
@@ -15,20 +14,18 @@ extension Repository {
     
 }
 
-extension PostRepositoryType /* Rx */ {
+extension PostRepositoryType /* Combine */ {
     
-    public func getPosts() -> Single<[Post]> {
-        return Single.create { single in
-            let disposable = Disposables.create()
+    public func getPosts() -> Future<[Post], Error> {
+        Future { promise in
             self.getPosts { result in
                 switch result {
                 case .success(let result):
-                    single(.success(result))
+                    promise(.success(result))
                 case .failure(let error):
-                    single(.error(error))
+                    promise(.failure(error))
                 }
             }
-            return disposable
         }
     }
     

@@ -1,6 +1,5 @@
 import UIKit
-import RxSwift
-import RxCocoa
+import Combine
 
 class PostDetailViewController: UIViewController {
     
@@ -9,34 +8,43 @@ class PostDetailViewController: UIViewController {
     @IBOutlet weak var commentsLabel: UILabel!
     
     var viewModel: PostDetailViewModelType!
-    
-    private let disposeBag = DisposeBag()
-    
+
+    var titleBag: AnyCancellable?
+    var authorBag: AnyCancellable?
+    var commentsBag: AnyCancellable?
+    var descriptionBag: AnyCancellable?
+    var progressBag: AnyCancellable?
+        
     override func viewDidLoad() {
         super.viewDidLoad()
         bind(viewModel.outputs)
     }
     
     private func bind(_ outputs: PostDetailViewModelOutputs) {
-        
+
+        titleBag =
         outputs.title
-            .drive(navigationItem.rx.title)
-            .disposed(by: disposeBag)
-        
+            .map { $0 as String? }
+            .assign(to: \.title, on: navigationItem)
+
+        authorBag =
         outputs.author
-            .drive(authorLabel.rx.text)
-            .disposed(by: disposeBag)
-        
-        outputs.description
-            .drive(descriptionLabel.rx.text)
-            .disposed(by: disposeBag)
-        
-        outputs.progressHud
-            .drive(rx.progressHUD)
-            .disposed(by: disposeBag)
-        
+            .map { $0 as String? }
+            .assign(to: \.text, on: authorLabel)
+
+        commentsBag =
         outputs.numberOfComments
-            .drive(commentsLabel.rx.text)
-            .disposed(by: disposeBag)
+            .map { $0 as String? }
+            .assign(to: \.text, on: commentsLabel)
+
+        descriptionBag =
+        outputs.description
+            .map { $0 as String? }
+            .assign(to: \.text, on: descriptionLabel)
+
+        progressBag =
+        outputs.progressHUD
+            .assign(to: \.progressHUD, on: self)
+
     }
 }

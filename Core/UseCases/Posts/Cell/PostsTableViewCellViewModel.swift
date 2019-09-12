@@ -1,13 +1,12 @@
 import Foundation
-import RxSwift
-import RxCocoa
+import Combine
 
 protocol PostsTableViewCellViewModelInputs {
     func tapped()
 }
 
 protocol PostsTableViewCellViewModelOutputs {
-    var title: Driver<String> { get }
+    var title: AnyPublisher<String, Never> { get }
 }
 
 protocol PostsTableViewCellViewModelType {
@@ -27,14 +26,14 @@ PostsTableViewCellViewModelOutputs {
     
     var inputs: PostsTableViewCellViewModelInputs { return self }
     var outputs: PostsTableViewCellViewModelOutputs { return self }
-    
-    let title: Driver<String>
-    
+
+    let title: AnyPublisher<String, Never>
+        
     let post: Post
-    
+
     init(post: Post) {
         self.post = post
-        title = Driver.just(post.title)
+        title = just(post.title)
     }
     
     func tapped() {

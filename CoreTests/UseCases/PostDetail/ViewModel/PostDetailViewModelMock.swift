@@ -1,16 +1,15 @@
 import Foundation
 @testable import Core
-import RxSwift
-import RxCocoa
+import Combine
 
 class PostDetailViewModelMock: PostDetailViewModelType, PostDetailViewModelOutputs {
-    
+
     var outputs: PostDetailViewModelOutputs { return self }
 
-    let title: Driver<String> = Driver.just("detail.title")
-    let author: Driver<String> = Driver.just("detail.author")
-    let description: Driver<String> = Driver.just("detail.description")
-    let progressHud: Driver<MBProgressHUDModel> = Driver.just(.hidden)
-    let numberOfComments: Driver<String> = Driver.just("detail.comments")
+    let title: AnyPublisher<String, Never> = just("detail.title")
+    let author: AnyPublisher<String, Never> = just("detail.author")
+    let description: AnyPublisher<String, Never> = just("detail.description")
+    let progressHUD: AnyPublisher<MBProgressHUDModel?, Never> = just(nil)
+    let numberOfComments: AnyPublisher<String, Never> = just("detail.comments")
     
 }

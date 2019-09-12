@@ -1,6 +1,5 @@
 import Foundation
-import RxSwift
-import RxCocoa
+import Combine
 
 public protocol CommentRepositoryType {
     func getComments(completion: @escaping (Result<[Comment]>) -> Void)
@@ -15,21 +14,19 @@ extension Repository {
     
 }
 
-extension CommentRepositoryType /* Rx */ {
-    
-    public func getComments() -> Single<[Comment]> {
-        return Single.create { single in
-            let disposable = Disposables.create()
+extension CommentRepositoryType /* Combine */ {
+
+    public func getComments() -> Future<[Comment], Error> {
+        Future { promise in
             self.getComments { result in
                 switch result {
                 case .success(let result):
-                    single(.success(result))
+                    promise(.success(result))
                 case .failure(let error):
-                    single(.error(error))
+                    promise(.failure(error))
                 }
             }
-            return disposable
         }
     }
-    
+
 }

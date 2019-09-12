@@ -1,69 +1,75 @@
 import Foundation
-import RxSwift
-import RxCocoa
+import Combine
+
+protocol PostsViewModelDelegate: class {
+    func tapped(post: Post)
+}
 
 protocol PostsViewModelOutputs {
-    var title: Driver<String> { get }
-    var entries: Driver<[PostsTableViewCellViewModelType]>! { get }
-    var progressHud: Driver<MBProgressHUDModel> { get }
+    var title: AnyPublisher<String, Never> { get }
+    var posts: AnyPublisher<[PostsTableViewCellViewModelType], Never>! { get }
+    var progressHUD: AnyPublisher<MBProgressHUDModel?, Never> { get }
 }
 
 protocol PostsViewModelType {
     var outputs: PostsViewModelOutputs { get }
 }
 
-protocol PostsViewModelDelegate: class {
-    func tapped(post: Post)
-}
-
 final class PostsViewModel: PostsViewModelType, PostsViewModelOutputs {
-    
+
     weak var delegate: PostsViewModelDelegate?
-    
-    var outputs: PostsViewModelOutputs { return self }
-    
-    let title: Driver<String>
-    var entries: Driver<[PostsTableViewCellViewModelType]>!
-    let progressHud: Driver<MBProgressHUDModel>
-    
+
     private let postRepository: PostRepositoryType
-    
-    private let disposeBag = DisposeBag()
-    
+
+    var outputs: PostsViewModelOutputs { self }
+
+    var title: AnyPublisher<String, Never>
+    var posts: AnyPublisher<[PostsTableViewCellViewModelType], Never>!
+    var progressHUD: AnyPublisher<MBProgressHUDModel?, Never>
+
+    private var progressHUDSubject = PassthroughSubject<MBProgressHUDModel?, Never>()
+
+    // MARK: - Lifecycle
+
     public init(postRepository: PostRepositoryType,
                 localizer: StringLocalizing = Localizer()) {
-        
+
         self.postRepository = postRepository
-        
-        title = Driver.just(localizer.localize("posts.title"))
-        
-        let postEvents = postRepository.getPosts()
-            .asObservable()
-            .materialize()
-            .share()
-        
-        let posts = postEvents.filter {
-            return $0.event.element != nil
-        }.map {
-            return $0.event.element!
-        }
-        
-        progressHud = postEvents.map { _ in return MBProgressHUDModel.hidden }
-            .startWith(MBProgressHUDModel(message: localizer.localize("posts.loading")))
-            .asDriver(onErrorJustReturn: .hidden)
-        
-        additionalInit(posts)
-        
+
+        title = just(localizer.localize("posts.title"))
+
+        progressHUD = progressHUDSubject.eraseToAnyPublisher()
+
+        additionalInit(with: localizer)
+
     }
-    
-    private func additionalInit(_ posts: Observable<[Post]>) {
-        
-        entries = posts.map {
-            self.viewModels(withPosts: $0, delegate: self)
-        }
-        .asDriver(onErrorJustReturn: [])
+
+    private func additionalInit(with localizer: StringLocalizing) {
+
+        posts =
+            postRepository.getPosts()
+                .handleEvents(receiveSubscription: { [weak self] _ in
+                    guard let self = self else { return }
+                    let message = localizer.localize("posts.loading")
+                    let model = MBProgressHUDModel(message: message)
+                    self.progressHUDSubject.send(model)
+                },
+                receiveOutput: { [weak self] _ in
+                    guard let self = self else { return }
+                    self.progressHUDSubject.send(nil)
+                })
+                .map {
+                    self.viewModels(withPosts: $0, delegate: self)
+                }
+                .receive(on: DispatchQueue.main)
+                .prepend([])
+                .replaceError(with: [])
+                .eraseToAnyPublisher()
+
     }
-    
+
+    // MARK: - View models mapping
+
     private func viewModels(withPosts posts: [Post],
                             delegate: PostsTableViewCellViewModelDelegate) -> [PostsTableViewCellViewModel] {
         

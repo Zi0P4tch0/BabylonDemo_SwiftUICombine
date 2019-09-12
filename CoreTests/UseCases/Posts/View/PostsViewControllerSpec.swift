@@ -1,7 +1,5 @@
 import Foundation
 @testable import Core
-import RxSwift
-import RxCocoa
 import Quick
 import Nimble
 

@@ -1,13 +1,12 @@
 import Foundation
-import RxSwift
-import RxCocoa
+import Combine
 
 protocol PostDetailViewModelOutputs {
-    var title: Driver<String> { get }
-    var author: Driver<String> { get }
-    var description: Driver<String> { get }
-    var progressHud: Driver<MBProgressHUDModel> { get }
-    var numberOfComments: Driver<String> { get }
+    var title: AnyPublisher<String, Never> { get }
+    var author: AnyPublisher<String, Never> { get }
+    var numberOfComments: AnyPublisher<String, Never> { get }
+    var description: AnyPublisher<String, Never> { get }
+    var progressHUD: AnyPublisher<MBProgressHUDModel?, Never> { get }
 }
 
 protocol PostDetailViewModelType {
@@ -17,13 +16,13 @@ protocol PostDetailViewModelType {
 final class PostDetailViewModel: PostDetailViewModelType, PostDetailViewModelOutputs {
     
     var outputs: PostDetailViewModelOutputs { return self }
-    
-    let title: Driver<String>
-    let author: Driver<String>
-    let description: Driver<String>
-    let progressHud: Driver<MBProgressHUDModel>
-    let numberOfComments: Driver<String>
-    
+
+    let title: AnyPublisher<String, Never>
+    let author: AnyPublisher<String, Never>
+    let numberOfComments: AnyPublisher<String, Never>
+    let description: AnyPublisher<String, Never>
+    let progressHUD: AnyPublisher<MBProgressHUDModel?, Never>
+
     private let post: Post
     private let userRepository: UserRepositoryType
     private let commentRepository: CommentRepositoryType
@@ -36,52 +35,43 @@ final class PostDetailViewModel: PostDetailViewModelType, PostDetailViewModelOut
         self.post = post
         self.userRepository = userRepository
         self.commentRepository = commentRepository
-        
-        title = Driver.just(String(format: localizer.localize("posts.detail.title"), "\(post.id)"))
-        
-        let userEvents = userRepository.getUsers()
-            .asObservable()
-            .materialize()
+
+        title = just(String(format: localizer.localize("posts.detail.title"), "\(post.id)"))
+
+        let users = userRepository.getUsers()
+            .receive(on: DispatchQueue.main)
+            .prepend([])
+            .replaceError(with: [])
             .share()
-        
-        let users = userEvents.filter {
-            return $0.event.element != nil
-        }.map {
-            return $0.event.element!
-        }
-        
-        let commentEvents = userEvents.flatMap { _ in
-            commentRepository.getComments()
-                .asObservable()
-        }
-        .materialize()
-        .share()
-        
-        let comments = commentEvents.filter {
-            return $0.event.element != nil
-        }.map {
-            return $0.event.element!
-        }
-        
+            .eraseToAnyPublisher()
+
+        let comments = commentRepository.getComments()
+            .receive(on: DispatchQueue.main)
+            .prepend([])
+            .replaceError(with: [])
+            .share()
+            .eraseToAnyPublisher()
+
         author = users.map { $0.filter { $0.id == post.userId } }
-            .map { $0.first?.username ?? localizer.localize("posts.detail.author.error") }
-            .startWith(localizer.localize("posts.detail.loading"))
-            .asDriver(onErrorJustReturn: localizer.localize("posts.detail.author.error"))
-        
+                      .map { $0.first?.username ?? localizer.localize("posts.detail.author.error") }
+                      .prepend(localizer.localize("posts.detail.loading"))
+                      .replaceError(with: localizer.localize("posts.detail.author.error"))
+                      .eraseToAnyPublisher()
+
         numberOfComments = comments.map { $0.filter { $0.postId == post.id } }
-            .map { String(format: localizer.localize("posts.detail.comments"), "\($0.count)") }
-            .startWith(localizer.localize("posts.detail.loading"))
-            .asDriver(onErrorJustReturn: localizer.localize("posts.detail.comments.error"))
-        
-        description = Driver.just(post.title)
-        
-        progressHud = Observable.merge(
-                userEvents.map { _ in return MBProgressHUDModel(message: localizer.localize("posts.detail.comments.loading")) },
-                commentEvents.map { _ in return MBProgressHUDModel.hidden }
-            )
-            .startWith(MBProgressHUDModel(message: localizer.localize("posts.detail.users.loading")))
-            .asDriver(onErrorJustReturn: .hidden)
-        
+                    .map { String(format: localizer.localize("posts.detail.comments"), "\($0.count)") }
+                    .prepend(localizer.localize("posts.detail.loading"))
+                    .replaceError(with: localizer.localize("posts.detail.comments.error"))
+                    .eraseToAnyPublisher()
+
+        description = just(post.title)
+
+        progressHUD =
+        users.map { _ in MBProgressHUDModel(message:localizer.localize("posts.detail.comments.loading")) }
+        .merge(with: comments.map { _ in nil as MBProgressHUDModel? })
+        .prepend(MBProgressHUDModel(message: localizer.localize("posts.detail.users.loading")))
+        .eraseToAnyPublisher()
+
     }
     
 }
