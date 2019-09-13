@@ -17,13 +17,11 @@ public final class PostsViewModel: ObservableObject {
 
         posts = []
         isLoading = true
-        loadingMessage = "posts.loading"
-
-        additionalInit()
+        loadingMessage = "posts.loading".localized()
 
     }
 
-    private func additionalInit() {
+    func onAppear() {
 
         postsCancellable =
             postRepository.getPosts()

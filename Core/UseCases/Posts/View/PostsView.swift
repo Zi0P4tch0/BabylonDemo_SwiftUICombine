@@ -18,6 +18,7 @@ public struct PostsView: View {
                 }
                 .navigationBarTitle(Localized("posts.title").text)
             }
+            .onAppear(perform: self.viewModel.onAppear)
         }
     }
 
