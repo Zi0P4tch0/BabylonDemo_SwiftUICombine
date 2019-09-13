@@ -6,3 +6,5 @@ public struct Post: Codable {
     public let title: String
     public let body: String
 }
+
+extension Post: Identifiable { }

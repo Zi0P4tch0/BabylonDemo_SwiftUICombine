@@ -1,76 +1,46 @@
 import Foundation
 import Combine
 
-protocol PostDetailViewModelOutputs {
-    var title: AnyPublisher<String, Never> { get }
-    var author: AnyPublisher<String, Never> { get }
-    var numberOfComments: AnyPublisher<String, Never> { get }
-    var description: AnyPublisher<String, Never> { get }
-    var progressHUD: AnyPublisher<MBProgressHUDModel?, Never> { get }
-}
+final class PostDetailViewModel: ObservableObject {
 
-protocol PostDetailViewModelType {
-    var outputs: PostDetailViewModelOutputs { get }
-}
-
-final class PostDetailViewModel: PostDetailViewModelType, PostDetailViewModelOutputs {
-    
-    var outputs: PostDetailViewModelOutputs { return self }
-
-    let title: AnyPublisher<String, Never>
-    let author: AnyPublisher<String, Never>
-    let numberOfComments: AnyPublisher<String, Never>
-    let description: AnyPublisher<String, Never>
-    let progressHUD: AnyPublisher<MBProgressHUDModel?, Never>
+    @Published var id: Int
+    @Published var author: String
+    @Published var numberOfComments: String
+    @Published var description: String
 
     private let post: Post
-    private let userRepository: UserRepositoryType
-    private let commentRepository: CommentRepositoryType
+    private let userRepository: UserRepositoryType = repository
+    private let commentRepository: CommentRepositoryType = repository
+
+    private var userCancellable: AnyCancellable?
+    private var commentsCancellable: AnyCancellable?
     
-    init(post: Post,
-         userRepository: UserRepositoryType,
-         commentRepository: CommentRepositoryType,
-         localizer: StringLocalizing = Localizer()) {
+    init(post: Post) {
         
         self.post = post
-        self.userRepository = userRepository
-        self.commentRepository = commentRepository
 
-        title = just(String(format: localizer.localize("posts.detail.title"), "\(post.id)"))
+        id = post.id
+        author = "posts.detail.author.loading".localized()
+        numberOfComments = "posts.detail.comments.loading".localized()
+        description = post.body
 
-        let users = userRepository.getUsers()
+    }
+
+    func onAppear() {
+
+        userCancellable = userRepository.getUsers()
             .receive(on: DispatchQueue.main)
-            .prepend([])
-            .replaceError(with: [])
-            .share()
-            .eraseToAnyPublisher()
+            .map { $0.filter { $0.id == self.post.userId }.first }
+            .map { $0?.username ?? "posts.detail.author.error".localized() }
+            .replaceError(with: "posts.detail.author.error".localized() )
+            .assign(to: \.author, on: self)
 
-        let comments = commentRepository.getComments()
+        commentsCancellable = commentRepository.getComments()
             .receive(on: DispatchQueue.main)
-            .prepend([])
-            .replaceError(with: [])
-            .share()
-            .eraseToAnyPublisher()
-
-        author = users.map { $0.filter { $0.id == post.userId } }
-                      .map { $0.first?.username ?? localizer.localize("posts.detail.author.error") }
-                      .prepend(localizer.localize("posts.detail.loading"))
-                      .replaceError(with: localizer.localize("posts.detail.author.error"))
-                      .eraseToAnyPublisher()
-
-        numberOfComments = comments.map { $0.filter { $0.postId == post.id } }
-                    .map { String(format: localizer.localize("posts.detail.comments"), "\($0.count)") }
-                    .prepend(localizer.localize("posts.detail.loading"))
-                    .replaceError(with: localizer.localize("posts.detail.comments.error"))
-                    .eraseToAnyPublisher()
-
-        description = just(post.title)
-
-        progressHUD =
-        users.map { _ in MBProgressHUDModel(message:localizer.localize("posts.detail.comments.loading")) }
-        .merge(with: comments.map { _ in nil as MBProgressHUDModel? })
-        .prepend(MBProgressHUDModel(message: localizer.localize("posts.detail.users.loading")))
-        .eraseToAnyPublisher()
+            .map { $0.filter { $0.postId == self.post.id } }
+            .map { "\($0.count) comments" }
+            .replaceError(with: "posts.detail.comments.error".localized() )
+            .assign(to: \.numberOfComments, on: self)
 
     }
     
